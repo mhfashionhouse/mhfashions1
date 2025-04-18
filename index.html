@@ -628,6 +628,39 @@
             // Show thank you popup
             showThankYouPopup();
         });
+
+        // Add this test function
+        async function testCAPI() {
+            try {
+                const response = await fetch('https://mhfashions1.netlify.app/.netlify/functions/conversion-api', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        data: {
+                            event_name: 'TestEvent',
+                            custom_data: {
+                                test_value: 123
+                            }
+                        }
+                    })
+                });
+                const result = await response.json();
+                console.log('Test CAPI Response:', result);
+                alert('CAPI Test Response: ' + JSON.stringify(result, null, 2));
+            } catch (error) {
+                console.error('Test CAPI Error:', error);
+                alert('CAPI Test Error: ' + error.message);
+            }
+        }
+
+        // Add a test button (you can remove this later)
+        document.body.insertAdjacentHTML('beforeend', `
+            <button onclick="testCAPI()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 10px;">
+                Test CAPI
+            </button>
+        `);
     </script>
 </body>
 </html> 
