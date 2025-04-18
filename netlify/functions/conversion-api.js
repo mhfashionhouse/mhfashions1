@@ -57,13 +57,6 @@ exports.handler = async (event) => {
       external_id: data.user_data?.external_id
     };
 
-    // Only add address if it exists
-    if (data.user_data?.address?.street_address) {
-      userData.address = {
-        street_address: data.user_data.address.street_address
-      };
-    }
-
     const url = `https://graph.facebook.com/v17.0/${pixelId}/events?access_token=${accessToken}`;
     
     // Prepare the event data
