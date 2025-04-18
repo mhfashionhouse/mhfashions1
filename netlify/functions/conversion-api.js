@@ -2,6 +2,12 @@
 
 const axios = require('axios');
 
+// Function to hash the phone number (if needed)
+function formatPhoneNumber(phone) {
+  // Remove any non-digit characters
+  return phone.replace(/\D/g, '');
+}
+
 exports.handler = async (event) => {
   // Enable CORS
   if (event.httpMethod === 'OPTIONS') {
@@ -44,6 +50,20 @@ exports.handler = async (event) => {
 
     const userAgent = event.headers['user-agent'] || '';
 
+    // Format user data according to Facebook's requirements
+    const userData = {
+      client_ip_address: clientIp,
+      client_user_agent: userAgent,
+      external_id: data.user_data?.external_id
+    };
+
+    // Only add address if it exists
+    if (data.user_data?.address?.street_address) {
+      userData.address = {
+        street_address: data.user_data.address.street_address
+      };
+    }
+
     const url = `https://graph.facebook.com/v17.0/${pixelId}/events?access_token=${accessToken}`;
     
     // Prepare the event data
@@ -53,11 +73,7 @@ exports.handler = async (event) => {
         event_time: Math.floor(Date.now() / 1000),
         event_source_url: 'https://mhfashions1.netlify.app/',
         action_source: "website",
-        user_data: {
-          client_ip_address: clientIp,
-          client_user_agent: userAgent,
-          ...(data.user_data || {})
-        },
+        user_data: userData,
         custom_data: {
           currency: data.custom_data?.currency || 'BDT',
           value: data.custom_data?.value || 0,
