@@ -643,17 +643,11 @@
             }
         }
 
-        // Function to send events to both Pixel and CAPI
-        async function trackEvent(eventName, eventData = {}) {
-            debugLog(`Tracking ${eventName} event`, eventData);
+        // Track Purchase event on form submission
+        async function trackEvent(eventName, eventData) {
+            debugLog(`Preparing to send ${eventName} event to CAPI...`);
             
-            // Send to browser pixel
-            fbq('track', eventName, eventData);
-            debugLog('Pixel event sent');
-
-            // Send to CAPI
             try {
-                debugLog('Sending to CAPI...');
                 const response = await fetch('/.netlify/functions/conversion-api', {
                     method: 'POST',
                     headers: {
@@ -663,18 +657,25 @@
                         data: {
                             event_name: eventName,
                             custom_data: {
-                                ...eventData,
-                                currency: eventData.currency || 'BDT',
-                                value: eventData.value || 0
-                            }
+                                currency: eventData.currency,
+                                value: eventData.value,
+                                contents: eventData.contents,
+                                content_type: eventData.content_type,
+                                delivery_category: eventData.shipping_cost ? 'home_delivery' : undefined,
+                                shipping_cost: eventData.shipping_cost,
+                                custom_products: eventData.custom_data?.products // Include detailed product info
+                            },
+                            user_data: eventData.user_data
                         }
                     })
                 });
+
                 const result = await response.json();
-                debugLog(`CAPI ${eventName} response`, result);
+                debugLog(`CAPI ${eventName} response:`, result);
+                return result;
             } catch (error) {
-                debugLog(`CAPI ${eventName} error`, error.message);
-                console.error(`CAPI ${eventName} error:`, error);
+                debugLog(`CAPI ${eventName} error:`, error.message);
+                throw error;
             }
         }
 
@@ -739,38 +740,45 @@
                 };
                 debugLog('Customer data collected:', customerData);
                 
-                // Get selected products - Updated logic
+                // Get selected products - Enhanced logging
                 const productsInfo = [];
-                document.querySelectorAll('.product-item').forEach((item, index) => {
-                    debugLog('Checking product:', item.querySelector('h4').textContent);
+                const allProducts = document.querySelectorAll('.product-item');
+                debugLog(`Checking ${allProducts.length} products for selection...`);
+                
+                allProducts.forEach((item, index) => {
+                    const productName = item.querySelector('h4').textContent;
+                    debugLog(`Checking product ${index + 1}: ${productName}`);
                     
                     const selectedSize = item.querySelector('.size-btn.active');
                     const selectedHijab = item.querySelector('.hijab-option input:checked');
                     const quantityInput = item.querySelector('.quantity');
                     
+                    debugLog(`Product ${index + 1} state:`, {
+                        hasSelectedSize: !!selectedSize,
+                        sizeValue: selectedSize ? selectedSize.textContent : 'none',
+                        hasSelectedHijab: !!selectedHijab,
+                        hijabValue: selectedHijab ? selectedHijab.value : 'none',
+                        quantity: quantityInput ? quantityInput.value : 'none'
+                    });
+                    
                     if (selectedSize && selectedHijab) {
                         const quantity = parseInt(quantityInput.value) || 1;
-                        const productName = item.querySelector('h4').textContent;
                         
-                        debugLog('Found selected product:', {
-                            name: productName,
-                            size: selectedSize.textContent,
-                            hijab: selectedHijab.value,
-                            quantity: quantity
-                        });
-                        
-                        productsInfo.push({
+                        const productInfo = {
                             id: index + 1,
                             name: productName,
                             size: selectedSize.textContent,
                             hijab: selectedHijab.value === 'with' ? 'হিজাবসহ' : 'হিজাব ছাড়া',
                             quantity: quantity,
                             price: 750
-                        });
+                        };
+                        
+                        productsInfo.push(productInfo);
+                        debugLog(`Added product ${index + 1} to order:`, productInfo);
                     }
                 });
                 
-                debugLog('All selected products:', productsInfo);
+                debugLog(`Total products selected: ${productsInfo.length}`, productsInfo);
                 
                 if (productsInfo.length === 0) {
                     debugLog('Error: No products selected');
@@ -784,13 +792,14 @@
                 const finalTotal = totalBill + shippingCost;
                 
                 debugLog('Order totals:', {
-                    products: productsInfo.length,
+                    numberOfProducts: productsInfo.length,
+                    productDetails: productsInfo,
                     subtotal: totalBill,
                     shipping: shippingCost,
                     total: finalTotal
                 });
                 
-                // Prepare purchase event data
+                // Prepare purchase event data with complete product information
                 const purchaseData = {
                     value: finalTotal,
                     currency: 'BDT',
@@ -811,6 +820,7 @@
                     },
                     custom_data: {
                         products: productsInfo.map(product => ({
+                            id: product.id,
                             name: product.name,
                             size: product.size,
                             hijab: product.hijab,
@@ -820,26 +830,32 @@
                     }
                 };
                 
-                debugLog('Sending purchase event...', purchaseData);
+                debugLog('Sending purchase event with complete data:', purchaseData);
                 
-                // Send to Facebook
-                await trackEvent('Purchase', purchaseData);
-                debugLog('Purchase event sent successfully');
-                
-                // Show thank you popup after a slight delay to ensure logs are visible
-                setTimeout(() => {
-                    showThankYouPopup();
-                }, 1000);
-                
-                // Reset form and selections
-                form.reset();
-                document.querySelectorAll('.size-btn.active').forEach(btn => btn.classList.remove('active'));
-                document.querySelectorAll('.hijab-option input:checked').forEach(input => input.checked = false);
-                document.querySelectorAll('.quantity').forEach(input => input.value = 1);
-                
-                debugLog('Order process completed successfully');
-                
-                return false;
+                try {
+                    // Send to Facebook
+                    await trackEvent('Purchase', purchaseData);
+                    debugLog('Purchase event sent successfully');
+                    
+                    // Show thank you popup after a slight delay
+                    setTimeout(() => {
+                        showThankYouPopup();
+                    }, 1000);
+                    
+                    // Reset form and selections
+                    form.reset();
+                    document.querySelectorAll('.size-btn.active').forEach(btn => btn.classList.remove('active'));
+                    document.querySelectorAll('.hijab-option input:checked').forEach(input => input.checked = false);
+                    document.querySelectorAll('.quantity').forEach(input => input.value = 1);
+                    
+                    debugLog('Order process completed successfully');
+                    
+                    return false;
+                } catch (error) {
+                    debugLog('Error during order process:', error.message);
+                    alert('অর্ডার প্রক্রিয়াকরণে একটি সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
+                    return false;
+                }
             } catch (error) {
                 debugLog('Error during order process:', error.message);
                 alert('অর্ডার প্রক্রিয়াকরণে একটি সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
