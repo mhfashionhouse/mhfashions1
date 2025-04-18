@@ -677,42 +677,118 @@
         // Track Purchase event on form submission
         document.getElementById('orderForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+            debugLog('Order form submitted - processing...');
             
             // Get form data
             const formData = new FormData(this);
             const customerData = {
-                name: formData.get('name'),
-                phone: formData.get('phone'),
-                address: formData.get('address'),
-                shipping: formData.get('shipping')
+                name: this.querySelector('input[type="text"]').value,
+                phone: this.querySelector('input[type="tel"]').value,
+                address: this.querySelector('textarea').value,
+                shipping: this.querySelector('input[name="shipping"]:checked').value
             };
+            debugLog('Customer data collected:', customerData);
             
             // Calculate total price and get products info
-            const totalBill = calculateTotalBill();
-            const productsInfo = getSelectedProductsInfo();
+            const productsInfo = [];
+            document.querySelectorAll('.product-item').forEach((item, index) => {
+                const selectedSize = item.querySelector('.size-btn.active')?.textContent;
+                const selectedHijab = item.querySelector('.hijab-option input:checked')?.value;
+                const quantity = parseInt(item.querySelector('.quantity').value) || 1;
+                
+                if (selectedSize && selectedHijab) {
+                    productsInfo.push({
+                        id: index + 1,
+                        name: item.querySelector('h4').textContent,
+                        size: selectedSize,
+                        hijab: selectedHijab,
+                        quantity: quantity,
+                        price: 750
+                    });
+                }
+            });
+            
+            const totalBill = productsInfo.reduce((sum, product) => sum + (product.price * product.quantity), 0);
+            const shippingCost = customerData.shipping === 'dhaka' ? 80 : 150;
+            const finalTotal = totalBill + shippingCost;
+            
+            debugLog('Order details:', {
+                products: productsInfo,
+                totalBill: totalBill,
+                shippingCost: shippingCost,
+                finalTotal: finalTotal
+            });
+
+            if (productsInfo.length === 0) {
+                debugLog('Error: No products selected');
+                alert('দয়া করে কমপক্ষে একটি পণ্য নির্বাচন করুন।');
+                return;
+            }
             
             // Track the purchase
             const purchaseData = {
-                value: totalBill,
+                value: finalTotal,
                 currency: 'BDT',
                 content_type: 'product',
                 contents: productsInfo.map(product => ({
                     id: product.id,
                     quantity: product.quantity,
-                    item_price: 750
+                    item_price: product.price
                 })),
-                shipping_cost: customerData.shipping === 'dhaka' ? 80 : 150,
+                shipping_cost: shippingCost,
                 user_data: {
-                    external_id: customerData.phone
+                    external_id: customerData.phone,
+                    phone: customerData.phone,
+                    address: customerData.address
                 }
             };
 
-            // Track both via pixel and CAPI
-            await trackEvent('Purchase', purchaseData);
-            
-            // Show thank you popup
-            showThankYouPopup();
+            try {
+                debugLog('Sending purchase event to Facebook...', purchaseData);
+                await trackEvent('Purchase', purchaseData);
+                debugLog('Purchase event sent successfully');
+                
+                // Show success message and popup
+                showThankYouPopup();
+                
+                // Clear form
+                this.reset();
+                // Reset product selections
+                document.querySelectorAll('.size-btn.active').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.hijab-option input:checked').forEach(input => input.checked = false);
+                document.querySelectorAll('.quantity').forEach(input => input.value = 1);
+                
+                debugLog('Order process completed successfully');
+            } catch (error) {
+                debugLog('Error during purchase event:', error);
+                alert('অর্ডার প্রক্রিয়াকরণে একটি সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
+            }
         });
+
+        function showThankYouPopup() {
+            const popup = document.getElementById('thankYouPopup');
+            if (popup) {
+                popup.style.display = 'flex';
+                // Play celebration sound
+                const celebrationSound = document.getElementById('celebrationSound');
+                if (celebrationSound) {
+                    celebrationSound.play().catch(e => console.log('Sound play failed:', e));
+                }
+                // Trigger confetti
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        function closeThankYouPopup() {
+            const popup = document.getElementById('thankYouPopup');
+            if (popup) {
+                popup.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html> 
