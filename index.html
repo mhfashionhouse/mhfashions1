@@ -739,26 +739,38 @@
                 };
                 debugLog('Customer data collected:', customerData);
                 
-                // Get selected products
+                // Get selected products - Updated logic
                 const productsInfo = [];
                 document.querySelectorAll('.product-item').forEach((item, index) => {
-                    const selectedSize = item.querySelector('.size-btn.active')?.textContent;
-                    const selectedHijab = item.querySelector('.hijab-option input:checked')?.value;
-                    const quantity = parseInt(item.querySelector('.quantity').value) || 1;
+                    debugLog('Checking product:', item.querySelector('h4').textContent);
+                    
+                    const selectedSize = item.querySelector('.size-btn.active');
+                    const selectedHijab = item.querySelector('.hijab-option input:checked');
+                    const quantityInput = item.querySelector('.quantity');
                     
                     if (selectedSize && selectedHijab) {
+                        const quantity = parseInt(quantityInput.value) || 1;
+                        const productName = item.querySelector('h4').textContent;
+                        
+                        debugLog('Found selected product:', {
+                            name: productName,
+                            size: selectedSize.textContent,
+                            hijab: selectedHijab.value,
+                            quantity: quantity
+                        });
+                        
                         productsInfo.push({
                             id: index + 1,
-                            name: item.querySelector('h4').textContent,
-                            size: selectedSize,
-                            hijab: selectedHijab === 'with' ? 'হিজাবসহ' : 'হিজাব ছাড়া',
+                            name: productName,
+                            size: selectedSize.textContent,
+                            hijab: selectedHijab.value === 'with' ? 'হিজাবসহ' : 'হিজাব ছাড়া',
                             quantity: quantity,
                             price: 750
                         });
                     }
                 });
                 
-                debugLog('Selected products:', productsInfo);
+                debugLog('All selected products:', productsInfo);
                 
                 if (productsInfo.length === 0) {
                     debugLog('Error: No products selected');
@@ -772,6 +784,7 @@
                 const finalTotal = totalBill + shippingCost;
                 
                 debugLog('Order totals:', {
+                    products: productsInfo.length,
                     subtotal: totalBill,
                     shipping: shippingCost,
                     total: finalTotal
@@ -785,13 +798,17 @@
                     contents: productsInfo.map(product => ({
                         id: product.id,
                         quantity: product.quantity,
-                        item_price: product.price
+                        item_price: product.price,
+                        name: product.name,
+                        size: product.size,
+                        hijab: product.hijab
                     })),
                     shipping_cost: shippingCost,
                     user_data: {
                         external_id: customerData.phone,
                         phone: customerData.phone,
-                        address: customerData.address
+                        address: customerData.address,
+                        name: customerData.name
                     }
                 };
                 
@@ -864,6 +881,56 @@
             if (e.ctrlKey && e.key === 'd') { // Ctrl+D to toggle debug section
                 const debugSection = document.getElementById('debug-section');
                 debugSection.classList.toggle('visible');
+            }
+        });
+
+        // Update quantity change handlers
+        document.querySelectorAll('.product-item').forEach(item => {
+            const quantityInput = item.querySelector('.quantity');
+            const plusBtn = item.querySelector('.quantity-btn.plus');
+            const minusBtn = item.querySelector('.quantity-btn.minus');
+            
+            if (plusBtn) {
+                plusBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    let value = parseInt(quantityInput.value) || 1;
+                    if (value < 10) {
+                        quantityInput.value = value + 1;
+                        debugLog('Quantity increased:', {
+                            product: item.querySelector('h4').textContent,
+                            quantity: value + 1
+                        });
+                    }
+                };
+            }
+            
+            if (minusBtn) {
+                minusBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    let value = parseInt(quantityInput.value) || 2;
+                    if (value > 1) {
+                        quantityInput.value = value - 1;
+                        debugLog('Quantity decreased:', {
+                            product: item.querySelector('h4').textContent,
+                            quantity: value - 1
+                        });
+                    }
+                };
+            }
+            
+            // Add direct input handling
+            if (quantityInput) {
+                quantityInput.addEventListener('change', function(e) {
+                    let value = parseInt(this.value) || 1;
+                    value = Math.max(1, Math.min(10, value));
+                    this.value = value;
+                    debugLog('Quantity changed directly:', {
+                        product: item.querySelector('h4').textContent,
+                        quantity: value
+                    });
+                });
             }
         });
     </script>
