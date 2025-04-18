@@ -26,19 +26,30 @@ exports.handler = async (event) => {
     const accessToken = process.env.FB_ACCESS_TOKEN;
     const pixelId = '1224675005739488'; // your pixel ID
 
+    // Get the client's IP address
+    const clientIp = event.headers['x-forwarded-for'] || event.headers['client-ip'];
+    const userAgent = event.headers['user-agent'];
+
     const url = `https://graph.facebook.com/v17.0/${pixelId}/events?access_token=${accessToken}`;
     
     const eventData = {
       data: [{
         event_name: data.event_name,
         event_time: Math.floor(Date.now() / 1000),
+        event_source_url: 'https://mhfashions1.netlify.app/',
         action_source: "website",
         user_data: {
-          client_ip_address: event.headers['x-forwarded-for'] || event.headers['client-ip'],
-          client_user_agent: event.headers['user-agent'],
-          ...data.user_data
+          client_ip_address: clientIp,
+          client_user_agent: userAgent,
+          fbp: data.user_data?.fbp || null,
+          fbc: data.user_data?.fbc || null,
+          external_id: data.user_data?.external_id || null
         },
-        custom_data: data.custom_data || {}
+        custom_data: {
+          ...data.custom_data,
+          currency: data.custom_data?.currency || 'BDT',
+          value: data.custom_data?.value || 0
+        }
       }]
     };
 
@@ -60,14 +71,14 @@ exports.handler = async (event) => {
     };
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error details:', error.response?.data || error.message);
     return {
       statusCode: 500,
       headers: {
         'Access-Control-Allow-Origin': '*'
       },
       body: JSON.stringify({ 
-        error: error.message 
+        error: error.response?.data || error.message 
       })
     };
   }
