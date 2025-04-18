@@ -649,7 +649,7 @@
             try {
                 alert('Testing CAPI... Please wait.');
                 
-                const response = await fetch('https://mhfashions1.netlify.app/.netlify/functions/conversion-api', {
+                const response = await fetch('/.netlify/functions/conversion-api', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -658,8 +658,15 @@
                         data: {
                             event_name: 'TestEvent',
                             custom_data: {
-                                test_value: 123,
+                                currency: 'BDT',
+                                value: 123,
+                                test_value: true,
                                 timestamp: new Date().toISOString()
+                            },
+                            user_data: {
+                                fbp: getCookie('_fbp'),
+                                fbc: getCookie('_fbc'),
+                                external_id: 'test_user_123'
                             }
                         }
                     })
@@ -672,6 +679,14 @@
                 console.error('Test CAPI Error:', error);
                 alert('CAPI Test Error: ' + error.message);
             }
+        }
+
+        // Helper function to get cookies
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
         }
     </script>
 </body>
