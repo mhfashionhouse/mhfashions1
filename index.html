@@ -798,17 +798,25 @@
                     contents: productsInfo.map(product => ({
                         id: product.id,
                         quantity: product.quantity,
-                        item_price: product.price,
-                        name: product.name,
-                        size: product.size,
-                        hijab: product.hijab
+                        item_price: product.price
                     })),
                     shipping_cost: shippingCost,
                     user_data: {
                         external_id: customerData.phone,
-                        phone: customerData.phone,
-                        address: customerData.address,
-                        name: customerData.name
+                        phone_number: customerData.phone,
+                        address: {
+                            street_address: customerData.address
+                        },
+                        client_user_agent: navigator.userAgent
+                    },
+                    custom_data: {
+                        products: productsInfo.map(product => ({
+                            name: product.name,
+                            size: product.size,
+                            hijab: product.hijab,
+                            quantity: product.quantity,
+                            price: product.price
+                        }))
                     }
                 };
                 
