@@ -548,11 +548,15 @@
 
         // Function to send events to both Pixel and CAPI
         async function trackEvent(eventName, eventData = {}) {
+            console.log(`Tracking ${eventName} event:`, eventData);
+            
             // Send to browser pixel
             fbq('track', eventName, eventData);
+            console.log('Pixel event sent');
 
             // Send to CAPI
             try {
+                console.log('Sending to CAPI...');
                 const response = await fetch('/.netlify/functions/conversion-api', {
                     method: 'POST',
                     headers: {
@@ -569,7 +573,8 @@
                         }
                     })
                 });
-                console.log(`${eventName} tracked via CAPI:`, await response.json());
+                const result = await response.json();
+                console.log(`CAPI ${eventName} response:`, result);
             } catch (error) {
                 console.error(`CAPI ${eventName} error:`, error);
             }
