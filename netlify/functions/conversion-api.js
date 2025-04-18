@@ -26,9 +26,17 @@ exports.handler = async (event) => {
     const accessToken = process.env.FB_ACCESS_TOKEN;
     const pixelId = '1224675005739488'; // your pixel ID
 
-    // Get the client's IP address
-    const clientIp = event.headers['x-forwarded-for'] || event.headers['client-ip'];
-    const userAgent = event.headers['user-agent'];
+    // Get and clean the IP address
+    let clientIp = event.headers['x-forwarded-for'] || event.headers['client-ip'] || '';
+    // Take only the first IP if multiple are present
+    clientIp = clientIp.split(',')[0].trim();
+    
+    // If no valid IP is found, use a default one
+    if (!clientIp || clientIp === 'unknown') {
+      clientIp = '0.0.0.0';
+    }
+
+    const userAgent = event.headers['user-agent'] || '';
 
     const url = `https://graph.facebook.com/v17.0/${pixelId}/events?access_token=${accessToken}`;
     
@@ -41,9 +49,9 @@ exports.handler = async (event) => {
         user_data: {
           client_ip_address: clientIp,
           client_user_agent: userAgent,
-          fbp: data.user_data?.fbp || null,
-          fbc: data.user_data?.fbc || null,
-          external_id: data.user_data?.external_id || null
+          fbp: data.user_data?.fbp || undefined,
+          fbc: data.user_data?.fbc || undefined,
+          external_id: data.user_data?.external_id || undefined
         },
         custom_data: {
           ...data.custom_data,
@@ -52,6 +60,12 @@ exports.handler = async (event) => {
         }
       }]
     };
+
+    // Remove undefined values
+    eventData.data[0].user_data = Object.fromEntries(
+      Object.entries(eventData.data[0].user_data)
+        .filter(([_, v]) => v != null)
+    );
 
     console.log('Sending event to Facebook:', JSON.stringify(eventData, null, 2));
 
