@@ -563,46 +563,91 @@
                             event_name: eventName,
                             custom_data: {
                                 ...eventData,
-                                currency: 'BDT'
+                                currency: eventData.currency || 'BDT',
+                                value: eventData.value || 0
                             }
                         }
                     })
                 });
-                console.log(`CAPI ${eventName} sent:`, await response.json());
+                console.log(`${eventName} tracked via CAPI:`, await response.json());
             } catch (error) {
                 console.error(`CAPI ${eventName} error:`, error);
             }
         }
 
-        // Track purchase events
+        // Track events for product interactions
+        document.querySelectorAll('.product-item').forEach((item, index) => {
+            // Track ViewContent when product is viewed
+            const productName = item.querySelector('h4').textContent;
+            trackEvent('ViewContent', {
+                content_type: 'product',
+                content_name: productName,
+                currency: 'BDT',
+                value: 750
+            });
+
+            // Track AddToCart when size and hijab are selected
+            const sizeButtons = item.querySelectorAll('.size-btn');
+            const hijabInputs = item.querySelectorAll('.hijab-option input');
+            
+            function checkAndTrackAddToCart() {
+                const selectedSize = Array.from(sizeButtons).find(btn => btn.classList.contains('active'))?.textContent;
+                const selectedHijab = Array.from(hijabInputs).find(input => input.checked)?.value;
+                const quantity = parseInt(item.querySelector('.quantity').value) || 1;
+
+                if (selectedSize && selectedHijab) {
+                    trackEvent('AddToCart', {
+                        content_type: 'product',
+                        content_name: productName,
+                        currency: 'BDT',
+                        value: 750 * quantity,
+                        contents: [{
+                            id: index + 1,
+                            quantity: quantity,
+                            item_price: 750
+                        }]
+                    });
+                }
+            }
+
+            sizeButtons.forEach(btn => btn.addEventListener('click', checkAndTrackAddToCart));
+            hijabInputs.forEach(input => input.addEventListener('change', checkAndTrackAddToCart));
+        });
+
+        // Track Purchase event on form submission
         document.getElementById('orderForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             // Get form data
             const formData = new FormData(this);
-            const name = formData.get('name');
-            const phone = formData.get('phone');
-            const address = formData.get('address');
-            const shipping = formData.get('shipping');
+            const customerData = {
+                name: formData.get('name'),
+                phone: formData.get('phone'),
+                address: formData.get('address'),
+                shipping: formData.get('shipping')
+            };
             
-            // Calculate total price
-            const totalBill = calculateTotalBill(); // Your existing calculation function
-            
-            // Get selected products info
-            const productsInfo = getSelectedProductsInfo(); // Your existing function
+            // Calculate total price and get products info
+            const totalBill = calculateTotalBill();
+            const productsInfo = getSelectedProductsInfo();
             
             // Track the purchase
             const purchaseData = {
                 value: totalBill,
                 currency: 'BDT',
+                content_type: 'product',
                 contents: productsInfo.map(product => ({
-                    name: product.split(' (')[0],
-                    quantity: parseInt(product.split(' - ')[1])
+                    id: product.id,
+                    quantity: product.quantity,
+                    item_price: 750
                 })),
-                content_type: 'product'
+                shipping_cost: customerData.shipping === 'dhaka' ? 80 : 150,
+                user_data: {
+                    external_id: customerData.phone
+                }
             };
 
-            // Send to both Pixel and CAPI
+            // Track both via pixel and CAPI
             await trackEvent('Purchase', purchaseData);
             
             // Show thank you popup
