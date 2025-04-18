@@ -285,6 +285,29 @@
     </section>
 
     <div class="order-form-container">
+        <!-- Add test section here -->
+        <div style="text-align: center; padding: 20px; margin: 20px; background: #f5f5f5;">
+            <h3>Debug Section</h3>
+            <button onclick="testPurchaseEvent()" 
+                    style="padding: 10px 20px; 
+                           background: #4CAF50; 
+                           color: white; 
+                           border: none; 
+                           border-radius: 5px; 
+                           cursor: pointer;">
+                Test Purchase Event
+            </button>
+            <div id="debug-log" 
+                 style="margin-top: 10px; 
+                        padding: 10px; 
+                        background: white; 
+                        border: 1px solid #ddd; 
+                        max-height: 200px; 
+                        overflow-y: auto; 
+                        text-align: left;">
+            </div>
+        </div>
+
         <section class="order-form">
             <h3>অর্ডার ফর্ম</h3>
             <form id="orderForm">
@@ -546,17 +569,48 @@
 
         setInterval(updateCountdown, 1000);
 
+        // Debug logging function
+        function debugLog(message, data) {
+            const log = `${new Date().toISOString()} - ${message} ${data ? JSON.stringify(data) : ''}`;
+            console.log('DEBUG:', log);
+            
+            const debugDiv = document.getElementById('debug-log');
+            if (debugDiv) {
+                debugDiv.innerHTML = log + '<br>' + debugDiv.innerHTML;
+            }
+        }
+
+        // Test purchase function
+        async function testPurchaseEvent() {
+            debugLog('Starting test purchase event');
+            try {
+                await trackEvent('Purchase', {
+                    currency: 'BDT',
+                    value: 750,
+                    content_type: 'product',
+                    contents: [{
+                        id: 1,
+                        quantity: 1,
+                        item_price: 750
+                    }]
+                });
+                debugLog('Test purchase event completed');
+            } catch (error) {
+                debugLog('Test purchase event failed', error.message);
+            }
+        }
+
         // Function to send events to both Pixel and CAPI
         async function trackEvent(eventName, eventData = {}) {
-            console.log(`Tracking ${eventName} event:`, eventData);
+            debugLog(`Tracking ${eventName} event`, eventData);
             
             // Send to browser pixel
             fbq('track', eventName, eventData);
-            console.log('Pixel event sent');
+            debugLog('Pixel event sent');
 
             // Send to CAPI
             try {
-                console.log('Sending to CAPI...');
+                debugLog('Sending to CAPI...');
                 const response = await fetch('/.netlify/functions/conversion-api', {
                     method: 'POST',
                     headers: {
@@ -574,8 +628,9 @@
                     })
                 });
                 const result = await response.json();
-                console.log(`CAPI ${eventName} response:`, result);
+                debugLog(`CAPI ${eventName} response`, result);
             } catch (error) {
+                debugLog(`CAPI ${eventName} error`, error.message);
                 console.error(`CAPI ${eventName} error:`, error);
             }
         }
