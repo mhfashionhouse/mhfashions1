@@ -353,21 +353,6 @@
         </section>
     </div>
 
-    <!-- Test CAPI Section -->
-    <div style="text-align: center; margin: 20px 0; padding: 20px; background: #f5f5f5;">
-        <h3>Test CAPI Integration</h3>
-        <button onclick="testCAPI()" 
-                style="padding: 15px 30px; 
-                       background: #4CAF50; 
-                       color: white; 
-                       border: none; 
-                       border-radius: 5px; 
-                       font-size: 16px; 
-                       cursor: pointer;">
-            Test CAPI Connection
-        </button>
-    </div>
-
     <!-- Thank You Popup -->
     <div class="thank-you-popup" id="thankYouPopup">
         <div class="popup-content">
@@ -561,16 +546,6 @@
 
         setInterval(updateCountdown, 1000);
 
-        // Send data to Google Sheet
-        fetch('https://script.google.com/macros/s/AKfycbwX9agHD09RrXqVeN8M_ZR8q0j6lF_wuu0wmJUSK4WywxwJgq0j8PaucDpsVRH7A7s/exec', {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(sheetData)
-        }).catch(console.error);
-
         // Function to send events to both Pixel and CAPI
         async function trackEvent(eventName, eventData = {}) {
             // Send to browser pixel
@@ -586,31 +561,20 @@
                     body: JSON.stringify({
                         data: {
                             event_name: eventName,
-                            custom_data: eventData,
-                            user_data: {
-                                // Add any user data you have
-                                external_id: document.querySelector('input[type="tel"]')?.value || ''
+                            custom_data: {
+                                ...eventData,
+                                currency: 'BDT'
                             }
                         }
                     })
                 });
-                console.log('CAPI response:', await response.json());
+                console.log(`CAPI ${eventName} sent:`, await response.json());
             } catch (error) {
-                console.error('CAPI error:', error);
+                console.error(`CAPI ${eventName} error:`, error);
             }
         }
 
-        // Track Purchase event with Facebook Pixel
-        trackEvent('Purchase', {
-            value: totalBill,
-            currency: 'BDT',
-            contents: productsInfo.map(product => ({
-                name: product.split(' (')[0],
-                quantity: parseInt(product.split(' - ')[1])
-            })),
-            content_type: 'product'
-        });
-
+        // Track purchase events
         document.getElementById('orderForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -638,50 +602,12 @@
                 content_type: 'product'
             };
 
+            // Send to both Pixel and CAPI
             await trackEvent('Purchase', purchaseData);
             
             // Show thank you popup
             showThankYouPopup();
         });
-
-        // Add this test function
-        async function testCAPI() {
-            try {
-                alert('Testing CAPI... Please wait.');
-                
-                const response = await fetch('/.netlify/functions/conversion-api', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        data: {
-                            event_name: 'TestEvent',
-                            custom_data: {
-                                currency: 'BDT',
-                                value: 100,
-                                content_type: 'product'
-                            }
-                        }
-                    })
-                });
-                
-                const result = await response.json();
-                console.log('Test CAPI Response:', result);
-                alert('CAPI Test Complete!\n\nResponse: ' + JSON.stringify(result, null, 2));
-            } catch (error) {
-                console.error('Test CAPI Error:', error);
-                alert('CAPI Test Error: ' + error.message);
-            }
-        }
-
-        // Helper function to get cookies
-        function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return null;
-        }
     </script>
 </body>
 </html> 
